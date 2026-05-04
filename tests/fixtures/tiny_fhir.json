@@ -1,0 +1,47 @@
+{
+  "resourceType": "Bundle",
+  "type": "transaction",
+  "entry": [
+    {
+      "resource": {
+        "resourceType": "Patient",
+        "id": "p1",
+        "name": [{"family": "Doe", "given": ["Jane"]}],
+        "birthDate": "1957-04-12"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "id": "o1",
+        "status": "final",
+        "code": {"text": "Creatinine"},
+        "effectiveDateTime": "2022-03-14T10:00:00Z",
+        "valueQuantity": {"value": 1.4, "unit": "mg/dL"},
+        "subject": {"reference": "Patient/p1"}
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Encounter",
+        "id": "e1",
+        "status": "finished",
+        "class": {"code": "AMB", "display": "Ambulatory"},
+        "period": {"start": "2022-03-14T09:30:00Z", "end": "2022-03-14T10:15:00Z"},
+        "reasonCode": [{"text": "Nephrology consult"}],
+        "subject": {"reference": "Patient/p1"}
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "MedicationRequest",
+        "id": "m1",
+        "status": "active",
+        "intent": "order",
+        "medicationCodeableConcept": {"text": "Lisinopril 10 mg"},
+        "authoredOn": "2022-03-14",
+        "subject": {"reference": "Patient/p1"}
+      }
+    }
+  ]
+}
