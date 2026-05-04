@@ -22,7 +22,11 @@ env/
 *.safetensors
 hf_cache/
 
-# Data (large files; use HF Hub for distribution)
+# Data — generated bundles and Synthea outputs are not tracked.
+# Only manifest.json files and curated images are kept in the repo.
+data/cases/*/fhir.json
+data/cases/*/synthea-output/
+data/cases/*/docs/
 data/raw/
 data/cache/
 *.dcm
