@@ -1,0 +1,38 @@
+docs/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+.env
+.env.local
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Hugging Face / model caches
+.cache/
+*.pt
+*.bin
+*.safetensors
+hf_cache/
+
+# Data (large files; use HF Hub for distribution)
+data/raw/
+data/cache/
+*.dcm
+*.svs
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
