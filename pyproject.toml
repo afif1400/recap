@@ -1,0 +1,13 @@
+[project]
+name = "recap"
+version = "0.1.0"
+description = "Longitudinal patient-records copilot — recaps a patient's whole chart in seconds. Built for the AMD x LabLab.ai hackathon."
+requires-python = ">=3.11"
+license = "MIT"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

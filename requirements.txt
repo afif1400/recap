@@ -1,0 +1,13 @@
+gradio==4.44.0
+spaces==0.30.4
+transformers==4.46.0
+torch==2.5.1
+accelerate==1.1.1
+pypdf==5.1.0
+Pillow==11.0.0
+plotly==5.24.1
+pandas==2.2.3
+pydantic==2.9.2
+fhir.resources==7.1.0
+httpx==0.27.2
+python-dateutil==2.9.0
