@@ -6,7 +6,7 @@
 
 fastapi==0.115.5
 uvicorn[standard]==0.32.0
-transformers>=5.7.0
+transformers>=4.57,<5
 accelerate>=1.1.1
 pydantic==2.9.2
 sentencepiece==0.2.0
