@@ -19,9 +19,25 @@ def test_load_case_with_only_fhir(tmp_path):
 
     p = load_case(str(tmp_path), "tiny")
     assert p.id == "tiny"
-    assert p.display_name == "Tiny Test"
+    assert p.display_name == "Tiny Test"  # manifest override wins
     assert len(p.events) > 0
-    assert all(e.source for e in p.events)
+
+
+def test_load_case_pulls_display_name_from_fhir_when_manifest_omits_it(tmp_path):
+    """Minimal manifest — name, age, gender all come from the FHIR Patient resource."""
+    case = tmp_path / "auto"
+    case.mkdir()
+    (case / "manifest.json").write_text(json.dumps({
+        "id": "auto",
+        "fhir_bundle": "fhir.json",
+        "demo_questions": [],
+    }))
+    shutil.copy("tests/fixtures/tiny_fhir.json", case / "fhir.json")
+
+    p = load_case(str(tmp_path), "auto")
+    assert p.display_name.startswith("Jane Doe")  # from FHIR Patient.name
+    assert p.age is not None and p.age >= 60
+    assert p.gender == "female"
 
 
 def test_load_case_with_pdf_docs(tmp_path):

@@ -6,8 +6,9 @@
       "resource": {
         "resourceType": "Patient",
         "id": "p1",
-        "name": [{"family": "Doe", "given": ["Jane"]}],
-        "birthDate": "1957-04-12"
+        "name": [{"family": "Doe123", "given": ["Jane45"]}],
+        "birthDate": "1957-04-12",
+        "gender": "female"
       }
     },
     {
@@ -40,6 +41,37 @@
         "intent": "order",
         "medicationCodeableConcept": {"text": "Lisinopril 10 mg"},
         "authoredOn": "2022-03-14",
+        "subject": {"reference": "Patient/p1"}
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Condition",
+        "id": "c1",
+        "clinicalStatus": {"coding": [{"code": "active"}]},
+        "code": {"text": "Chronic kidney disease, stage 3"},
+        "onsetDateTime": "2022-04-01T00:00:00Z",
+        "subject": {"reference": "Patient/p1"}
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Procedure",
+        "id": "pr1",
+        "status": "completed",
+        "code": {"text": "Renal ultrasound"},
+        "performedDateTime": "2022-04-15T11:00:00Z",
+        "subject": {"reference": "Patient/p1"}
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "DiagnosticReport",
+        "id": "dr1",
+        "status": "final",
+        "code": {"text": "Comprehensive metabolic panel"},
+        "effectiveDateTime": "2022-03-14T10:30:00Z",
+        "conclusion": "Mildly elevated creatinine consistent with stage 3 CKD.",
         "subject": {"reference": "Patient/p1"}
       }
     }

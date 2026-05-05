@@ -3,7 +3,18 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-EventCategory = Literal["lab", "visit", "scan", "med", "note", "photo", "other"]
+EventCategory = Literal[
+    "lab",
+    "visit",
+    "scan",
+    "med",
+    "note",
+    "photo",
+    "diagnosis",
+    "procedure",
+    "report",
+    "other",
+]
 
 
 class Citation(BaseModel):
@@ -26,6 +37,8 @@ class Event(BaseModel):
 class Patient(BaseModel):
     id: str
     display_name: str
+    age: int | None = None
+    gender: str | None = None  # "male" | "female" | "other"
     events: list[Event] = Field(default_factory=list)
 
 
