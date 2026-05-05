@@ -42,12 +42,12 @@ fi
 source .venv/bin/activate
 pip install --upgrade pip wheel --quiet
 
-step "Install ROCm-flavored torch (this is the slow step, ~3-5 min)"
-if python -c "import torch; assert torch.cuda.is_available()" 2>/dev/null; then
-  info "torch already installed and CUDA-available — skipping"
+step "Install ROCm-flavored torch (rocm6.4 wheel — needs torch>=2.6 for transformers 4.57+)"
+if python -c "import torch; assert torch.cuda.is_available() and tuple(int(x) for x in torch.__version__.split('+')[0].split('.')[:2]) >= (2, 6)" 2>/dev/null; then
+  info "torch >=2.6 already installed and CUDA-available — skipping"
 else
-  pip install --pre torch \
-    --index-url https://download.pytorch.org/whl/nightly/rocm6.2 \
+  pip install --upgrade --no-cache-dir torch torchvision \
+    --index-url https://download.pytorch.org/whl/rocm6.4 \
     --quiet
 fi
 python -c "import torch; print(f'   torch {torch.__version__} | hip {torch.version.hip} | cuda_avail={torch.cuda.is_available()}')"
