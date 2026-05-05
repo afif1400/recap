@@ -1,8 +1,7 @@
-"""Loads MedGemma-27B-MM + Qwen-32B co-resident on a single AMD MI300X.
+"""MedGemma + Qwen co-resident loader for the AMD MI300X.
 
-Designed to run inside the FastAPI server on the droplet. Models are loaded
-lazily (first request triggers load) so the health endpoint is responsive
-even before the heavy weights touch GPU memory.
+Set BACKEND_FAKE=1 to skip model loading entirely and return canned text —
+useful for testing the HTTP plumbing on a Mac without torch installed.
 """
 
 from __future__ import annotations
@@ -12,37 +11,37 @@ import time
 from threading import Lock
 from typing import Any
 
-import torch
-from transformers import (
-    AutoModelForCausalLM,
-    AutoModelForImageTextToText,
-    AutoProcessor,
-    AutoTokenizer,
-)
-
 MEDGEMMA_ID = os.getenv("MEDGEMMA_ID", "google/medgemma-27b-it")
 QWEN_ID = os.getenv("QWEN_ID", "Qwen/Qwen3.6-27B")
-
-DEVICE = "cuda:0"
-DTYPE = torch.bfloat16
+FAKE = os.getenv("BACKEND_FAKE", "0") == "1"
 
 _state: dict[str, Any] = {"loaded": False}
 _lock = Lock()
 
 
 def _ensure_loaded() -> None:
-    """Load both models into GPU memory once. Idempotent + thread-safe."""
-    if _state["loaded"]:
+    if FAKE or _state["loaded"]:
         return
     with _lock:
-        if _state["loaded"]:  # double-checked
+        if _state["loaded"]:
             return
+
+        import torch
+        from transformers import (
+            AutoModelForCausalLM,
+            AutoModelForImageTextToText,
+            AutoProcessor,
+            AutoTokenizer,
+        )
+
+        device = "cuda:0"
+        dtype = torch.bfloat16
 
         t0 = time.time()
         print(f"[serve] loading MedGemma: {MEDGEMMA_ID}", flush=True)
         _state["medgemma_proc"] = AutoProcessor.from_pretrained(MEDGEMMA_ID)
         _state["medgemma"] = AutoModelForImageTextToText.from_pretrained(
-            MEDGEMMA_ID, torch_dtype=DTYPE, device_map=DEVICE,
+            MEDGEMMA_ID, torch_dtype=dtype, device_map=device,
         )
         torch.cuda.synchronize()
         peak_after_mg = torch.cuda.max_memory_allocated() / 1e9
@@ -52,19 +51,27 @@ def _ensure_loaded() -> None:
         print(f"[serve] loading Qwen: {QWEN_ID}", flush=True)
         _state["qwen_tok"] = AutoTokenizer.from_pretrained(QWEN_ID)
         _state["qwen"] = AutoModelForCausalLM.from_pretrained(
-            QWEN_ID, torch_dtype=DTYPE, device_map=DEVICE,
+            QWEN_ID, torch_dtype=dtype, device_map=device,
         )
         torch.cuda.synchronize()
         peak = torch.cuda.max_memory_allocated() / 1e9
         print(f"[serve] qwen loaded in {time.time() - t1:.1f}s, total peak {peak:.1f} GB", flush=True)
 
+        _state["torch"] = torch
+        _state["device"] = device
         _state["loaded"] = True
         _state["peak_after_load_gb"] = peak
 
 
-def memory_stats() -> dict[str, float]:
+def memory_stats() -> dict[str, Any]:
+    if FAKE:
+        return {"available": False, "mode": "fake"}
+    try:
+        import torch
+    except ImportError:
+        return {"available": False, "mode": "no-torch"}
     if not torch.cuda.is_available():
-        return {"available": False}
+        return {"available": False, "mode": "no-cuda"}
     return {
         "available": True,
         "allocated_gb": torch.cuda.memory_allocated() / 1e9,
@@ -75,9 +82,38 @@ def memory_stats() -> dict[str, float]:
     }
 
 
+def _fake_medgemma(user: str) -> str:
+    import re
+    sources = re.findall(r"\[src:([^\]]+)\]", user)
+    src = sources[0] if sources else "fhir.json"
+    dates = re.findall(r"(\d{4}-\d{2}-\d{2})", user)
+    earliest = min(dates) if dates else "2022-03-14"
+    return (
+        f"Earliest relevant finding: {earliest} — entry surfaced by retrieval "
+        f"[src:{src}]. (BACKEND_FAKE=1; real medgemma extraction would identify "
+        f"specific values, units, and reference ranges.)"
+    )
+
+
+def _fake_qwen(user: str) -> str:
+    import re
+    cite = re.search(r"\[src:[^\]]+\]", user) or "[src:fhir.json]"
+    cite_str = cite.group() if hasattr(cite, "group") else str(cite)
+    return (
+        f"Based on the records, the earliest signal in the timeline points to "
+        f"a finding around the dates retrieved {cite_str}. This is a fake "
+        f"response from BACKEND_FAKE=1 — when the MI300X backend is up with "
+        f"BACKEND_FAKE=0, this answer comes from Qwen 3.6-27B synthesizing "
+        f"MedGemma-27B-MM's evidence extraction."
+    )
+
+
 def medgemma_extract(system: str, user: str, max_new_tokens: int = 384) -> str:
-    """First stage of the two-stage reasoner: read records, surface relevant findings."""
+    if FAKE:
+        return _fake_medgemma(user)
     _ensure_loaded()
+    torch = _state["torch"]
+    device = _state["device"]
     msgs = [
         {"role": "system", "content": [{"type": "text", "text": system}]},
         {"role": "user",   "content": [{"type": "text", "text": user}]},
@@ -85,7 +121,7 @@ def medgemma_extract(system: str, user: str, max_new_tokens: int = 384) -> str:
     inputs = _state["medgemma_proc"].apply_chat_template(
         msgs, add_generation_prompt=True, tokenize=True,
         return_dict=True, return_tensors="pt",
-    ).to(DEVICE)
+    ).to(device)
     out = _state["medgemma"].generate(
         **inputs, max_new_tokens=max_new_tokens, do_sample=False,
     )
@@ -94,8 +130,11 @@ def medgemma_extract(system: str, user: str, max_new_tokens: int = 384) -> str:
 
 
 def qwen_synthesize(system: str, user: str, max_new_tokens: int = 512) -> str:
-    """Second stage: synthesize MedGemma's findings into the final cited answer."""
+    if FAKE:
+        return _fake_qwen(user)
     _ensure_loaded()
+    torch = _state["torch"]
+    device = _state["device"]
     msgs = [
         {"role": "system", "content": system},
         {"role": "user",   "content": user},
@@ -103,7 +142,7 @@ def qwen_synthesize(system: str, user: str, max_new_tokens: int = 512) -> str:
     text = _state["qwen_tok"].apply_chat_template(
         msgs, add_generation_prompt=True, tokenize=False,
     )
-    inputs = _state["qwen_tok"](text, return_tensors="pt").to(DEVICE)
+    inputs = _state["qwen_tok"](text, return_tensors="pt").to(device)
     out = _state["qwen"].generate(
         **inputs, max_new_tokens=max_new_tokens, do_sample=False,
     )

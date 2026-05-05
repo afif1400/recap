@@ -7,5 +7,5 @@ sdk: docker
 app_port: 7860
 pinned: false
 license: mit
-short_description: Recap reads the whole chart so you don't have to.
+short_description: A patient's whole life, cited. MedGemma+Qwen on MI300X.
 ---
