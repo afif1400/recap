@@ -25,17 +25,112 @@ const PALETTE = {
 };
 
 const CAT = {
-  diagnosis: { glyph: '※' },
-  visit:     { glyph: '◇' },
-  lab:       { glyph: '▲' },
-  report:    { glyph: '▭' },
-  scan:      { glyph: '◐' },
-  procedure: { glyph: '✦' },
-  med:       { glyph: '℞' },
-  note:      { glyph: '—' },
-  photo:     { glyph: '◧' },
-  other:     { glyph: '·' },
+  diagnosis: { label: 'Diagnosis',  hint: 'Clinical condition'         },
+  visit:     { label: 'Visit',      hint: 'Patient encounter'          },
+  lab:       { label: 'Lab',        hint: 'Laboratory result'          },
+  report:    { label: 'Report',     hint: 'Clinical report or summary' },
+  scan:      { label: 'Scan',       hint: 'Medical imaging'            },
+  procedure: { label: 'Procedure',  hint: 'Operation or intervention'  },
+  med:       { label: 'Medication', hint: 'Prescribed drug'            },
+  note:      { label: 'Note',       hint: 'Free-text clinical note'    },
+  photo:     { label: 'Photo',      hint: 'Patient-supplied image'     },
+  other:     { label: 'Other',      hint: 'Uncategorized event'        },
 };
+
+// Inline lucide-style icons (24x24 viewBox). stroke inherits from parent.
+// One glyph per event category, picked for instant recognition.
+const ICONS = {
+  // alert-octagon — signals clinical importance for any diagnosis
+  diagnosis: (
+    <g>
+      <path d="M7.86 2h8.28L22 7.86v8.28L16.14 22H7.86L2 16.14V7.86z" />
+      <path d="M12 8v4" />
+      <path d="M12 16h.01" />
+    </g>
+  ),
+  // stethoscope
+  visit: (
+    <g>
+      <path d="M11 2v2" />
+      <path d="M5 2v2" />
+      <path d="M5 3H4a2 2 0 0 0-2 2v4a6 6 0 0 0 12 0V5a2 2 0 0 0-2-2h-1" />
+      <path d="M8 15a6 6 0 0 0 12 0v-3" />
+      <circle cx="20" cy="10" r="2" />
+    </g>
+  ),
+  // flask-conical
+  lab: (
+    <g>
+      <path d="M10 2v6.5L3.5 19a1 1 0 0 0 .9 1.5h15.2a1 1 0 0 0 .9-1.5L14 8.5V2" />
+      <path d="M9 2h6" />
+      <path d="M6.4 14.5h11.2" />
+    </g>
+  ),
+  // file-text
+  report: (
+    <g>
+      <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+      <path d="M14 2v6h6" />
+      <path d="M9 13h6" />
+      <path d="M9 17h4" />
+    </g>
+  ),
+  // image (frame + small sun + mountain) — universal "imaging" symbol
+  scan: (
+    <g>
+      <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+      <circle cx="9" cy="9" r="2" />
+      <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+    </g>
+  ),
+  // scissors
+  procedure: (
+    <g>
+      <circle cx="6" cy="6" r="3" />
+      <path d="M8.12 8.12 12 12" />
+      <path d="M20 4 8.12 15.88" />
+      <circle cx="6" cy="18" r="3" />
+      <path d="M14.8 14.8 20 20" />
+    </g>
+  ),
+  // pill
+  med: (
+    <g>
+      <path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z" />
+      <path d="m8.5 8.5 7 7" />
+    </g>
+  ),
+  // pen-line
+  note: (
+    <g>
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
+    </g>
+  ),
+  // camera
+  photo: (
+    <g>
+      <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
+      <circle cx="12" cy="13" r="3" />
+    </g>
+  ),
+  // dot fallback
+  other: (
+    <circle cx="12" cy="12" r="3" />
+  ),
+};
+
+function EventIcon({ category, size = 12 }) {
+  const paths = ICONS[category] || ICONS.other;
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24"
+         fill="none" stroke="currentColor" strokeWidth="2"
+         strokeLinecap="round" strokeLinejoin="round"
+         style={{ display: 'block' }}>
+      {paths}
+    </svg>
+  );
+}
 
 const SERIF = '"Source Serif 4", "GT Sectra", "Tiempos Headline", Charter, Georgia, serif';
 const SANS  = '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif';
@@ -366,7 +461,7 @@ function YearSection({ c, year, events, first }) {
       </div>
 
       <div style={{
-        position: 'absolute', left: 84, top: 56, bottom: 0,
+        position: 'absolute', left: 100, top: 56, bottom: 0,
         width: 1, background: c.rule,
       }} />
 
@@ -381,13 +476,21 @@ function YearSection({ c, year, events, first }) {
 
 function DocEvent({ c, e, index, active, onClick }) {
   const cat = CAT[e.category] || CAT.other;
+  const [iconHover, setIconHover] = useState(false);
+  // Vertical center of the title line is roughly 26px from the top of the
+  // content button (≈12px category label + 3px gap + half of 22px title line).
+  // Center the icon there so it visually anchors to the title, not the date.
+  const iconCenterY = 26;
+  const iconSize = active ? 30 : 26;
+  const iconPadTop = Math.max(iconCenterY - iconSize / 2, 0);
   return (
     <div style={{
       display: 'flex', alignItems: 'flex-start',
       padding: '12px 0', position: 'relative',
     }}>
       <div style={{
-        width: 76, flexShrink: 0, paddingRight: 8, paddingTop: 2, textAlign: 'right',
+        width: 76, flexShrink: 0, paddingRight: 8,
+        paddingTop: 16, textAlign: 'right',
       }}>
         <div style={{
           fontFamily: SERIF, fontSize: 14, color: c.ink, fontWeight: 500,
@@ -404,18 +507,52 @@ function DocEvent({ c, e, index, active, onClick }) {
       </div>
 
       <div style={{
-        width: 16, flexShrink: 0, display: 'flex', justifyContent: 'center',
-        paddingTop: 4, position: 'relative', zIndex: 1,
+        width: 32, flexShrink: 0, display: 'flex', justifyContent: 'center',
+        paddingTop: iconPadTop, position: 'relative', zIndex: 1,
       }}>
-        <div style={{
-          width: active ? 22 : 14, height: active ? 22 : 14,
-          borderRadius: e.category === 'diagnosis' ? 2 : '50%',
-          background: active ? c.accent : c.paper,
-          border: `1px solid ${active ? c.accent : c.rule}`,
-          display: 'grid', placeItems: 'center',
-          color: active ? c.paper : c.muted, fontSize: 9, fontFamily: SANS,
-          transition: 'all .2s',
-        }}>{cat.glyph}</div>
+        {/* Hover wrapper sits exactly on the icon — tooltip uses bottom:100% relative to it */}
+        <div style={{ position: 'relative', display: 'inline-block' }}
+             onMouseEnter={() => setIconHover(true)}
+             onMouseLeave={() => setIconHover(false)}>
+          <div style={{
+            width: iconSize, height: iconSize,
+            borderRadius: e.category === 'diagnosis' ? 4 : '50%',
+            background: active ? c.accent : c.paper,
+            border: `1px solid ${active ? c.accent : c.rule}`,
+            display: 'grid', placeItems: 'center',
+            color: active ? c.paper : c.muted,
+            transition: 'all .15s',
+            boxShadow: iconHover && !active ? `0 0 0 4px ${c.accentSoft}` : 'none',
+          }}>
+            <EventIcon category={e.category} size={active ? 16 : 14} />
+          </div>
+          {iconHover && (
+            <div role="tooltip" style={{
+              position: 'absolute', bottom: '100%', left: '50%',
+              transform: 'translateX(-50%)', marginBottom: 8,
+              background: c.ink, color: c.bg,
+              padding: '6px 10px', borderRadius: 2,
+              fontFamily: MONO, fontSize: 10, letterSpacing: '0.06em',
+              whiteSpace: 'nowrap', pointerEvents: 'none', zIndex: 50,
+              boxShadow: '0 4px 14px rgba(0,0,0,.18)',
+              display: 'flex', alignItems: 'baseline', gap: 6,
+            }}>
+              <span style={{ fontWeight: 600, textTransform: 'uppercase' }}>
+                {cat.label}
+              </span>
+              <span style={{ opacity: 0.65 }}>· {cat.hint}</span>
+              {/* Tooltip tail */}
+              <span style={{
+                position: 'absolute', top: '100%', left: '50%',
+                transform: 'translateX(-50%)',
+                width: 0, height: 0,
+                borderLeft: '5px solid transparent',
+                borderRight: '5px solid transparent',
+                borderTop: `5px solid ${c.ink}`,
+              }} />
+            </div>
+          )}
+        </div>
       </div>
 
       <button onClick={onClick} style={{

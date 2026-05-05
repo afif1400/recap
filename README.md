@@ -83,7 +83,7 @@ Environment variables (all prefixed `RECAP_*`):
 | `RECAP_MI300X_URL` | — | Premium-mode backend URL (set when the MI300X box is up) |
 | `RECAP_MEDGEMMA_LITE` | `google/medgemma-1.5-4b-it` | Public-Space model |
 | `RECAP_MEDGEMMA_PREMIUM` | `google/medgemma-27b-it` | MI300X model |
-| `RECAP_QWEN` | `Qwen/Qwen2.5-14B-Instruct` | Reasoner model |
+| `RECAP_QWEN` | `Qwen/Qwen3.6-27B` | Reasoner model — latest dense Qwen (Apr 2026), matched 27B class to MedGemma. Fallbacks: `Qwen/Qwen3-32B`, `Qwen/Qwen3-14B`, `Qwen/Qwen3.6-35B-A3B` |
 
 ## Hugging Face Space deployment
 
@@ -96,7 +96,7 @@ The HF Space requires YAML frontmatter at the top of its README, which GitHub re
 
 ## Tech stack
 
-- **Models:** Google MedGemma 1.5 (4B-MM lite, 27B-MM premium), Alibaba Qwen 2.5 (14B–32B)
+- **Models:** Google MedGemma 1.5 (4B-MM lite, 27B-MM premium), Alibaba **Qwen 3.6-27B** (latest, released 2026-04-22)
 - **Serving:** vLLM-on-ROCm on MI300X, HF Transformers + ZeroGPU `@spaces.GPU` on the Space
 - **Frontend:** Gradio 4.44, Plotly
 - **Data:** Synthea synthetic FHIR + public CC0 imaging, packaged as an HF Dataset

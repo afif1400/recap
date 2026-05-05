@@ -18,6 +18,6 @@ def load() -> Config:
         mi300x_url=os.getenv("RECAP_MI300X_URL", ""),
         medgemma_lite_id=os.getenv("RECAP_MEDGEMMA_LITE", "google/medgemma-1.5-4b-it"),
         medgemma_premium_id=os.getenv("RECAP_MEDGEMMA_PREMIUM", "google/medgemma-27b-it"),
-        qwen_id=os.getenv("RECAP_QWEN", "Qwen/Qwen2.5-14B-Instruct"),
+        qwen_id=os.getenv("RECAP_QWEN", "Qwen/Qwen3.6-27B"),
         cases_dir=os.getenv("RECAP_CASES_DIR", "data/cases"),
     )
