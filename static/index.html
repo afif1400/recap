@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Recap — reads the whole chart</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Recap reads a patient's whole chart so you don't have to. Powered by MedGemma + Qwen on AMD MI300X." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;0,8..60,600;1,8..60,400;1,8..60,500&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" />
+  <style>
+    html, body, #root {
+      margin: 0; padding: 0; height: 100%; min-height: 100%;
+      background: #f4ede2;
+      font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    *::-webkit-scrollbar { width: 8px; height: 8px; }
+    *::-webkit-scrollbar-thumb { background: rgba(127,127,127,.28); border-radius: 4px; }
+    *::-webkit-scrollbar-thumb:hover { background: rgba(127,127,127,.45); }
+    *::-webkit-scrollbar-track { background: transparent; }
+  </style>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
+</head>
+<body>
+  <div id="root">
+    <div style="position:absolute;inset:0;display:grid;place-items:center;font-family:'Source Serif 4',Georgia,serif;color:#3a2e25;">
+      <div style="text-align:center;">
+        <div style="font-size:42px;letter-spacing:-.03em;">Recap<span style="color:#b8412e;">.</span></div>
+        <div style="font-style:italic;color:#6b5c4a;margin-top:8px;">loading the chart…</div>
+      </div>
+    </div>
+  </div>
+  <script type="text/babel" data-presets="env,react" src="/static/app.jsx"></script>
+</body>
+</html>

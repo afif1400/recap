@@ -1,18 +1,29 @@
-"""Recap — Gradio app entry point. HF Spaces boots from this file."""
+"""Recap — FastAPI app entry point. Serves the React UI + JSON inference API.
+
+GET  /                  → static index.html (React via CDN, Babel-compiled JSX in browser)
+GET  /static/*          → static assets (app.jsx, css)
+GET  /api/patients      → list of patients with full event timelines
+POST /api/answer        → run the inference gateway and return a cited answer
+GET  /api/health        → liveness + backend selection
+"""
 
 from pathlib import Path
 
-import gradio as gr
+from fastapi import FastAPI
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 
 from recap.cases import load_case
 from recap.config import load as load_config
 from recap.demo_patient import build_demo_patient
 from recap.inference import answer as answer_question
 from recap.models import Patient
-from recap.ui import build_timeline_figure
 
 
 CFG = load_config()
+ROOT = Path(__file__).parent
+STATIC_DIR = ROOT / "static"
 
 
 def _discover_cases() -> dict[str, Patient]:
@@ -23,109 +34,110 @@ def _discover_cases() -> dict[str, Patient]:
             if (d / "manifest.json").exists():
                 try:
                     cases[d.name] = load_case(CFG.cases_dir, d.name)
-                except Exception as e:  # noqa: BLE001 — keep one bad case from breaking the whole UI
+                except Exception as e:  # noqa: BLE001 — keep one bad case from breaking the whole API
                     print(f"[recap] failed to load case {d.name}: {e}")
     if not cases:
         cases["demo"] = build_demo_patient()
     return cases
 
 
-PATIENTS = _discover_cases()
-DEFAULT_CASE = next(iter(PATIENTS))
+PATIENTS: dict[str, Patient] = _discover_cases()
 
 
-DISCLAIMER = (
-    "⚠️ **Demo only.** Not a clinical tool. Synthetic patients only — no real PHI. "
-    "Outputs may be wrong; do not use for medical decisions."
-)
+app = FastAPI(title="Recap", version="0.1.0")
 
-ABOUT = """\
-**Recap** is a longitudinal patient-records copilot built for the
-[AMD x LabLab.ai Developer Hackathon](https://lablab.ai/ai-hackathons/amd-developer).
-
-Drop in a patient's scattered records — labs, scans, photos, discharge summaries —
-and Recap shows you a chronological timeline plus a chat where every answer is
-cited back to the exact source. The premium-mode backend runs MedGemma + Qwen
-co-resident on a single AMD MI300X (192 GB).
-"""
+app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 
-def render_for(case_id: str):
-    p = PATIENTS[case_id]
-    fig = build_timeline_figure(p)
-    bio = (
-        f"### {p.display_name}\n"
-        f"{len(p.events)} events across {len({e.date.year for e in p.events})} year(s).  "
-        f"Gender: {p.gender or 'unknown'}.  Age: {p.age if p.age is not None else 'unknown'}."
-    )
-    return fig, bio
+class AnswerRequest(BaseModel):
+    patient_id: str
+    question: str
 
 
-def chat_fn(message: str, history, case_id: str, backend: str):
-    import os
-    os.environ["RECAP_BACKEND"] = backend
-    p = PATIENTS[case_id]
-    a = answer_question(message, p.events)
-    if a.citations:
-        cite_lines = []
-        for c in a.citations:
-            ref = f"`{c.source_id}`"
-            if c.page is not None:
-                ref += f" p.{c.page}"
-            if c.snippet:
-                ref += f" — *{c.snippet}*"
-            cite_lines.append(ref)
-        return a.text + "\n\n**Sources:**\n- " + "\n- ".join(cite_lines)
-    return a.text
+@app.get("/")
+def index() -> FileResponse:
+    return FileResponse(STATIC_DIR / "index.html")
 
 
-def example_questions(case_id: str) -> list[list[str]]:
-    p = PATIENTS[case_id]
-    if p.id == "demo" or "Sarah" in p.display_name:
-        return [
-            ["When did her kidney function start declining?"],
-            ["What was her first abnormal creatinine reading?"],
-            ["What medications was she on when CKD was diagnosed?"],
-        ]
-    return [["Summarize this patient's history in 3 sentences."]]
+@app.get("/api/patients")
+def list_patients() -> JSONResponse:
+    """Serialize all loaded patients in a shape the React app expects."""
+    out = []
+    for pid, p in PATIENTS.items():
+        out.append({
+            "id": p.id,
+            "display_name": p.display_name,
+            "age": p.age,
+            "gender": p.gender,
+            "mrn": getattr(p, "mrn", None) or f"MRN-{abs(hash(p.id)) % 9999999:07d}",
+            "summary": _patient_summary(p),
+            "hook": _patient_hook(p),
+            "tags": _patient_tags(p),
+            "events": [_event_to_dict(e) for e in p.events],
+        })
+    return JSONResponse(out)
 
 
-with gr.Blocks(title="Recap", theme=gr.themes.Soft()) as demo:
-    gr.Markdown("# 🩺 Recap")
-    gr.Markdown("*Reads the whole chart so you don't have to.*")
-    gr.Markdown(DISCLAIMER)
+@app.post("/api/answer")
+def answer(req: AnswerRequest) -> JSONResponse:
+    if req.patient_id not in PATIENTS:
+        return JSONResponse({"error": f"unknown patient {req.patient_id}"}, status_code=404)
+    p = PATIENTS[req.patient_id]
+    a = answer_question(req.question, p.events)
+    return JSONResponse({
+        "text": a.text,
+        "citations": [
+            {"source_id": c.source_id, "page": c.page, "snippet": c.snippet}
+            for c in a.citations
+        ],
+    })
 
-    with gr.Accordion("About", open=False):
-        gr.Markdown(ABOUT)
 
-    with gr.Row():
-        case_dropdown = gr.Dropdown(
-            choices=list(PATIENTS.keys()),
-            value=DEFAULT_CASE,
-            label="Showcase patient",
-            scale=2,
-        )
-        backend_choice = gr.Radio(
-            choices=["mock", "zerogpu", "mi300x"],
-            value=CFG.backend,
-            label="Inference backend",
-            scale=1,
-            info="mock = offline canned reply; zerogpu = MedGemma-4B on H200; mi300x = full premium mode",
-        )
+@app.get("/api/health")
+def health() -> JSONResponse:
+    return JSONResponse({
+        "ok": True,
+        "backend": CFG.backend,
+        "patient_count": len(PATIENTS),
+        "patient_ids": list(PATIENTS.keys()),
+    })
 
-    summary = gr.Markdown()
-    plot = gr.Plot()
 
-    chat = gr.ChatInterface(
-        fn=chat_fn,
-        additional_inputs=[case_dropdown, backend_choice],
-        examples=example_questions(DEFAULT_CASE),
-        chatbot=gr.Chatbot(height=320),
-    )
+# ─── Helpers ───────────────────────────────────────────────────────────
 
-    case_dropdown.change(fn=render_for, inputs=case_dropdown, outputs=[plot, summary])
-    demo.load(fn=render_for, inputs=case_dropdown, outputs=[plot, summary])
+
+def _event_to_dict(e) -> dict:
+    return {
+        "id": e.id,
+        "date": e.date.date().isoformat(),
+        "category": e.category,
+        "title": e.title,
+        "source": e.source,
+        "body": e.body,
+        "page": e.metadata.get("page"),
+        "snippet": e.metadata.get("snippet"),
+        "flag": e.metadata.get("flag"),
+    }
+
+
+def _patient_summary(p: Patient) -> str:
+    """One-sentence dossier summary. Real cases override via manifest.summary later."""
+    n = len(p.events)
+    years = sorted({e.date.year for e in p.events})
+    span = f"{years[0]}–{years[-1]}" if years else "no record"
+    return f"{n} clinical events on file from {span}."
+
+
+def _patient_hook(p: Patient) -> str:
+    return ""
+
+
+def _patient_tags(p: Patient) -> list[str]:
+    """Surface the most recent diagnosis titles as tag chips."""
+    dx = [e.title for e in sorted(p.events, key=lambda e: e.date, reverse=True) if e.category == "diagnosis"]
+    return dx[:3]
 
 
 if __name__ == "__main__":
-    demo.launch()
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=7860)
