@@ -7,6 +7,7 @@ on GitHub to match what's on the Space.
 
 from __future__ import annotations
 
+import fnmatch
 import shutil
 import subprocess
 import tempfile
@@ -17,12 +18,26 @@ from huggingface_hub import HfApi
 REPO_ID = "lablab-ai-amd-developer-hackathon/recap"
 ROOT = Path(__file__).resolve().parent.parent
 
-IGNORE = {
+# Top-level entries skipped entirely.
+EXCLUDE_NAMES = {
     ".git", ".venv", "venv", "env",
     "__pycache__", ".pytest_cache",
     "docs", "node_modules",
     ".DS_Store",
+    "backend",          # droplet-only; contains curl-install patterns that trip HF's malware scanner
 }
+
+# Glob patterns matched against file basenames at any depth.
+EXCLUDE_GLOBS = [
+    "DEPLOY.md",        # droplet runbook (curl-binary instructions)
+    "droplet_*.sh",     # droplet-only scripts (cloudflared install, etc.)
+]
+
+
+def _excluded(name: str) -> bool:
+    if name in EXCLUDE_NAMES:
+        return True
+    return any(fnmatch.fnmatch(name, g) for g in EXCLUDE_GLOBS)
 
 
 def _build_hf_readme(staging: Path) -> None:
@@ -36,12 +51,13 @@ def _build_hf_readme(staging: Path) -> None:
 
 
 def _copy_to_staging(staging: Path) -> None:
+    ignore_fn = shutil.ignore_patterns(*EXCLUDE_NAMES, *EXCLUDE_GLOBS)
     for entry in ROOT.iterdir():
-        if entry.name in IGNORE:
+        if _excluded(entry.name):
             continue
         dst = staging / entry.name
         if entry.is_dir():
-            shutil.copytree(entry, dst, ignore=shutil.ignore_patterns(*IGNORE))
+            shutil.copytree(entry, dst, ignore=ignore_fn)
         else:
             shutil.copy2(entry, dst)
 
